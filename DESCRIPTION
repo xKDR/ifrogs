@@ -1,0 +1,16 @@
+Package: ifrogs
+Title: Finance routines developed by the IGIDR Finance Research Group.
+Version: 1.0
+Depends: urca, vars
+Imports: xtable, fOptions
+Author: Finance Research Group <akhilsbehl@gmail.com>
+Maintainer: Akhil S. Behl <akhilsbehl@gmail.com>
+Description: Finance routines developed at IGIDR Finance Research Group.
+URL: http://r-forge.r-project.org/projects/ifrogs/
+BugReports: https://r-forge.r-project.org/tracker/?group_id=1561
+License: GPL (>= 2)
+Date: 2013-06-26
+Type: Package
+ByteCompile: TRUE
+LazyLoad: TRUE
+BuildVignettes: TRUE

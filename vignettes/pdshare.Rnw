@@ -1,0 +1,474 @@
+\documentclass[nojss]{jss}
+
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{thumbpdf}
+\usepackage{color}
+\usepackage{float}
+\floatstyle{ruled}
+\restylefloat{table}
+
+\newcommand{\floatintro}[1]{
+
+  \vspace*{0.1in}
+  
+  {\footnotesize
+    #1
+    }
+  
+  \vspace*{0.1in} 
+  
+}
+
+
+\newcommand{\alert}[1]{\textcolor{red}{#1}}
+
+
+%\VignetteIndexEntry{pdshare}
+\author{
+  Nidhi Aggarwal \\
+  Indira Gandhi Institute of Development Research, Mumbai
+}
+
+\title{
+  Information share and component share weights: \\\proglang{R}
+  implementation
+}
+
+\Plainauthor{Nidhi Aggarwal}
+\Plaintitle{Information share and component share weights: R
+  implementation}
+\Shorttitle{Price discovery measures in \proglang{R}}
+
+\Abstract{
+  This paper explains the implementation of function \code{pdshare}
+  in the package \pkg{ifrogs}. The function can be employed to estimate
+  the two most widely used approaches to measure price discovery:
+  information share and component share. The implementation is
+  illustrated with an example to determine the share of spot and
+  futures market for a stock in price discovery. The function can
+  currently be used for a bivariate case only.
+
+}
+
+\Keywords{Price discovery, information share, component share}
+
+
+\Address{
+  Nidhi Aggarwal\\
+  Indira Gandhi Institute of Development Research\\
+  Goregaon East, Mumbai\\
+  400 065, India\\
+  E-mail: \email{nidhi@igidr.ac.in}\\
+}
+
+
+\begin{document}
+
+
+\section{Introduction}\label{s:intro}
+Price discovery is a process by which new information is timely and
+efficiently incorporated into market prices of the assets. When
+the same asset (or an asset with similar attributes) is traded in
+multiple markets, the question that arises is: which market
+incorporates the new information first, or, which market leads the
+price discovery process? In order to answer this question, two 
+techniques that have been developed and most widely used in the
+literature are: Information Share \emph{(IS)}, proposed by
+\citet{Hasbrouck1995} and Component Share \emph{(CS)} proposed by
+\citet{Booth1999}, \citet{Chu1999}, \citet{Harris2002} which is based
+on the permanent and transitory decomposition of
+\citet{GonzaloGranger1995}. The two approaches are based on a common
+implicit efficient price that is contained in the observed price of a
+security and can be estimated using a vector error correction model
+(VECM) framework. Hasbrouck's IS focuses on the variance of the
+efficient price innovation, and measures what proportion of the
+efficient price variance can be attributed to the innovations from
+different markets. The CS approach, on the other hand, focuses on the
+composition of the efficient price innovation and measures a
+market's contribution to price discovery as its contribution to the
+efficient price innovation.   
+
+At present, there is no standard package in \proglang{R} that implements
+the two approaches. The function \code{pdshare()} in the package
+\pkg{ifrogs} attempts to provide a tool for the same. It has
+been used for the estimations of the IS and CS weights in
+\citet{Thomas2011}.\footnote{An example dataset used to illustrate the
+  function replicates the results of Table 10 in the paper.}
+Currently, the function can be used for a bivariate case
+only. However, the future version of the package is aimed at extending
+the function to more than two markets.    
+
+The article proceeds as follows: Section \ref{s:mspec} briefly
+describes the derivation of the two measures. Section
+\ref{s:rimplement} explains the function and the implementation
+method. Section \ref{s:example} illustrates the function with an
+example. Section \ref{s:accuracy} and \ref{s:efficiency} show
+the accuracy and computational efficiency of the function. Section
+\ref{s:summary} summarises.   
+
+\section{Model specification}\label{s:mspec}
+
+Let \textbf{p}$_{i,t}$ = ($p_{1,t}$, $p_{2,t}$)$^{\prime}$ denote a
+vector of (log) prices of a security traded on two distinct markets, 1
+and 2, such that  
+
+\[\textbf{p}_{i,t} = (p_{1,t}, p_{2,t}) \sim I(1)\]
+
+Since the prices represent the same security, the two prices are
+linked by the force of arbitrage and cannot deviate from  
+each other in the long run. The two price series are thus
+cointegrated and the linear relationship is expressed as
+\[  p_{1,t} =  \beta p_{2,t} + \mu_t\]
+
+where $\mu_t \sim I(0)$ and $\beta$ is the cointegrating vector,
+$\beta = (1, -\beta)^\prime$. The VECM representation for `k' lags can
+be given as    
+
+\begin{eqnarray} 
+\Delta \textbf{p}_t=\alpha \beta^\prime \textbf{p}_{t-1}+\Gamma
+_1\Delta 
+ \textbf{p}_{t-1}+...\Gamma _k\Delta \textbf{p}_{t-k}+\epsilon_t  
+\end{eqnarray} 
+
+where $\alpha$ represents the coefficient associated with the error
+correction term. $\epsilon$ is a 2$\times$1 vector of the residuals
+  with $\epsilon_t \sim N(0,\Omega)$. Since the price changes are
+  assumed to be covariance stationary, the vector moving average (VMA)
+  or the Wold representation is given as:  
+
+\begin{eqnarray*} 
+  \bigtriangleup \textbf{p}_{t}=\Psi(L) \epsilon_{t} 
+\end{eqnarray*} 
+
+where $\Psi(L) = \Sigma_{s=0}^\infty\Psi_sL^s$ 
+
+The Beveridge-Nelson decomposition \citep{Beveridge1981} can be used
+to derive the common trends representation in the levels prices: 
+
+\begin{eqnarray*}
+ \textbf{p}_t=\textbf{p}_0+\Psi(1)\Sigma _{s=0}^{t}\epsilon_s+\Psi^*(L)\epsilon_t
+\end{eqnarray*}
+
+where, $\Psi(1) =\Sigma_{k=0}^\infty\Psi_k$. In the above equation, the
+matrix $\Psi(1)$ contains the cumulative impact of innovation
+$\epsilon_t$ on all future price movements and thus measures the long
+run impact of $\epsilon_t$ on prices. \citet{Hasbrouck1995} shows that
+since both the price series represent an identical security, the long
+run impact of $\epsilon_t$ on each of the price series should be
+the same. Thus, in principle, the rows of $\Psi(1)$ are identical.   
+
+\subsection{Information share}\label{ss:is} 
+Denote $\psi = (\psi_1, \psi_2)$ as the common row vector of
+$\Psi(1)$. $\psi \epsilon_t$ is the incremental change in price that
+is permanently impounded into the security prices and is presumably
+due to new information (captured in
+$\epsilon_t$). \citet{Hasbrouck1995} proposes the use of the structure
+of the variance of this component to derive the measure of price
+discovery. The variance of $\psi \epsilon_{t}$ is written as:   
+
+\begin{eqnarray*}
+    \textrm{var}(\psi \epsilon_{t})=\psi\Omega \psi^\prime  
+\end{eqnarray*} 
+
+If $\Omega$ is diagonal, then $\psi\Omega \psi^\prime$ will consist of
+`n' terms, each of which would represent contribution to the efficient 
+price innovation from each market. The proportion of the variance of
+the efficient price innovation that can be attributed from an
+innovation from market `j', is called `j'\textit{th} market's
+information share. It is defined as
+
+\begin{eqnarray*}
+ IS_j=\frac{\psi_j^2\Omega_{jj}}{\psi\Omega \psi^\prime}
+\end{eqnarray*}
+
+where $\psi_j$ is the \textit{j}$^{th}$ element of $\psi$.
+
+However, if $\Omega$ is not diagonal, that is, if the price
+innovations are correlated, the proposed measure has
+the problem of attributing the covariance terms to each market. To
+overcome this problem, \citet{Hasbrouck1995} suggested the use of
+triangularization/Cholesky decomposition of $\Omega$ and measure IS
+using the orthogonalized innovations. This can be accomplished in the
+following way:                             
+
+Let `F' be a lower triangular matrix such that $FF^\prime =\Omega$. The
+IS for the $j^{th} $ market is then defined as
+
+\begin{eqnarray*}
+ IS_j=\frac{([\psi^\prime F]_i)^2}{\Psi\Omega \Psi^\prime}
+\end{eqnarray*}
+
+The resulting IS will depend on the ordering of price variables. The
+upper bound of IS of a particular market can be obtained by placing
+that market's price first. Similarly, a lower bound can be obtained by
+placing that market's price the last. For `n' markets, by doing all the
+permutations, one can obtain the obtain the upper and lower bound of
+IS for each market.   
+
+\subsection{Component share}\label{ss:cs}
+Under this approach, \textbf{p}$_t$ takes the form:
+\begin{eqnarray*}
+\textbf{p}_t = A_1f_t + A_2z_t
+\end{eqnarray*}
+
+where $f_= \gamma^\prime \textbf{p}_t \sim I(1)$ is the permanent component
+and $z_t \sim I(0)$ is the transitory component. While $A_1$ and
+$A_2$ are the loading matrices, $\gamma^\prime$ is the matrix of
+common factor weights. Gonzalo-Granger defined $\gamma = (\alpha_\bot
+^\prime \beta_\bot)^{-1}\alpha_\bot^\prime$ such that
+$\alpha_\bot^\prime \alpha = 0$ and $\beta_\bot^\prime \beta =
+0$. Note that $\alpha$ and $\beta$ correspond to 
+the VECM representation mentioned before. \citet{Booth1999},
+\citet{Chu1999}, \citet{Harris2002}, \citet{Baillie2002} suggested
+measuring price discovery in market `j' using the component share as:  
+
+\begin{eqnarray*}   
+CS_j= \frac{\alpha_{\bot,j}}{\alpha_{\bot,j}+\beta_{\bot,j}}, 
+j=1,2 
+\end{eqnarray*}
+
+
+\section{R implementation}\label{s:rimplement}
+The two approaches described in the previous section can be
+implemented using the function \code{pdshare}. The function consumes
+a matrix of (log) prices and returns a list of IS and CS measures,
+the covariance matrix of residuals and the number of lags used for
+estimation. The function is described below:
+<< echo=TRUE >>=
+library(ifrogs)
+str(pdshare)
+@ 
+
+The data matrix of prices for which the measure is to be estimated is
+provided in the argument \code{x}. A user can specify the lag
+order to be used in VECM estimation by using the argument
+\code{override.lags}. Alternatively, the user can also use the
+Akaike information criterion (AIC) in order to automatically determine the
+number of lags. This can be achieved by specifying the highest lag
+order that one would want to use in the argument
+\code{lag.max}. Once an integer in \code{lag.max} is specified,
+the function \code{pdshare} uses the \code{VARselect} function in
+package \pkg{vars} to select the number of lags. 
+
+The function \code{pdshare} first estimates a VEC model for the
+underlying data in \code{x} using the functionality in package
+\pkg{urca}. The orthogonalized coefficient matrices are then derived
+using function \code{Psi} in package \pkg{vars}. Subsequently, the
+$\Psi(1)$ matrix is computed as
+$\beta_\bot(\alpha_\bot\prime\Gamma\beta_\bot)^{-1}\alpha_\bot$  where 
+$\Gamma = (I-\Gamma_1-\ldots-\Gamma_{k-1})$. Once these
+estimations are done, IS and CS weights are computed as specified in
+Section \ref{s:mspec}. 
+
+As we discussed in Section \ref{s:mspec}, the IS estimates depend on
+the ordering of the price variables. IS is first estimated as per the
+supplied ordering. Once the estimation on supplied ordering is done,
+the results are stored and then the ordering of the price variables is
+automatically reversed. That is, Price series 1 will be column 2 and
+Price series 2 will be column 1 in the data matrix. IS estimation is
+then done for the reversed ordering.
+
+The function \code{pdshare} returns a list of five elements. These
+are: \code{is.original.ordering}, \code{is.reversed.ordering},
+\code{component.share}, \code{var.covar.matrix} and
+\code{lags.used}. 
+\code{is.original.ordering} returns the IS 
+estimates for the supplied ordering, \code{is.reversed.ordering}
+returns the IS estimates for the reversed ordering. Note that the
+first and second element of the vector \code{is.original.ordering}
+specify the IS estimate of Market 1 and 2 respectively. In contrast,
+the first and the second element of the vector
+\code{is.reversed.ordering} specify the IS estimate of Market 2 and 1
+respectively. \code{var.covar.matrix} returns the
+variance-covariance matrix of the VECM residuals. One can obtain the 
+number of lags used in the VECM estimation using \code{lags.used}. 
+
+\section{Example}\label{s:example}
+This section illustrates the function with a data set on the spot and
+the futures market for a stock \code{RELIANCE}, traded on
+the National Stock Exchange, India. In the first step, the package
+\pkg{ifrogs} and dataset \code{idfc} are loaded.
+
+<< echo=TRUE>>=
+library(ifrogs)
+data(is_reliance)
+head(is_reliance)
+@ 
+
+Since the prices are of the same security traded on two different
+markets -- spot and the futures, the two price series are
+cointegrated. We now proceed to estimate the IS and CS weights for
+the two markets using the function \code{pdshare}.
+
+<<echo=TRUE>>=
+compute.time <- system.time(ans <- pdshare(log(is_reliance[,-1]), lag.max=120))
+summary(is_reliance)
+@ 
+
+We use the automatic lag selection based on the AIC criterion, and
+specify an upper bound for the maximum number of lags to be used for
+VECM estimation as 5. \code{ans.pds} shows the list of objects
+returned from the function. 
+
+<<echo=TRUE>>=
+ans$is.original.ordering
+ans$is.reversed.ordering
+ans$component.share
+ans$var.covar.matrix
+ans$lags.used
+@ 
+
+\code{ans\$is.original.ordering} indicates that the spot market
+(Market 1) has an IS of 7\% while that of the futures market (Market
+2) is 93\%. On reversing the ordering, the IS of spot and the futures 
+market is estimated as 2\% and 98\% respectively. The average IS of
+the futures market is thus, 96\%. The estimates indicate that the
+futures market leads the price discovery process. The component share
+weights also show that the futures market has a share of 89\% while
+the spot market has a share of 11\% in price discovery. These values
+replicate the results in Table 10 from the paper \citet{Thomas2011}.
+The number of lags used in the VECM estimation is fifty-two 
+
+Alternatively, the user can fix the number of lags using
+override.lags. This can be done as follows:
+
+<<echo=TRUE>>=
+compute.time.1 <- system.time(ans1 <- 
+                              pdshare(log(is_reliance[,-1]), override.lags=60))
+ans1
+@ 
+
+\code{ans1} shows the results of the estimation by imposing
+the number of lags to be used in the model as sixty.
+
+\section{Benchmarking accuracy}\label{s:accuracy}
+The accuracy of the code has been tested using the analytical examples
+presented in \citet{Baillie2002}. The authors use an error correction
+model and derive the \textit{IS} and \textit{CS} measures for three
+different examples of the error correlation behavior. The paper uses
+the following model: \\
+
+For two cointegrated series \textrm{x}$_1$ and \textrm{x}$_2$ 
+\[ \Delta \textrm{x}_1 =
+-\alpha_1(\textrm{x}_{1,t-1}-\textrm{x}_{2,t-1})+\epsilon_{1t} \]  
+\[\Delta \textrm{x}_2 =
+\alpha_2(\textrm{x}_{1,t-1}-\textrm{x}_{2,t-1})+\epsilon_{2t} \] 
+  
+\[ \textrm{cov}(e_{1t},e_{2t}) =  
+\left(\begin{array}{cc}
+  1 & \rho  \\
+  \rho & 1   \end{array} \right) 
+\] 
+
+where $\alpha_1$ and $\alpha_2$ are positive constants and
+$e_{it} \sim \textrm{N}(0,1)$.
+
+For different values of $\alpha_1$, $\alpha_2$ and $\rho$, the authors
+report the IS and CS values in Table 1 of the paper. 
+
+We simulate the above model for different values of $\alpha_1$,
+$\alpha_2$ and $\rho$ (as per the paper) and report the true and
+estimated values of IS and CS measures in
+Table \ref{t:testing}.\footnote{50 simulations for each model type were 
+  conducted. The table reports the mean value of estimated IS and CS.}
+As in \citet{Baillie2002}, we report the values of these measures for
+\textrm{x}$_1$ only.
+
+\begin{table}[ht]
+    \floatintro{
+      The table shows the true and estimated values of IS
+      and CS for series $\textrm{x}_1$ obtained for the model used in
+      the anaytical example in \citet{Baillie2002}. UB indicates the
+      upper bound while LB indicates the lower bound of the IS measure.
+    }
+    \begin{center}
+      %    \begin{small}
+      \begin{tabular}{l|ccc|ccc}
+        \hline
+        & \multicolumn{3}{c|}{True values} &
+        \multicolumn{3}{c}{Estimated values}\\ 
+        Example & IS-UB  & IS-LB & CS & $\widehat{\textrm{IS-UB}}$ &
+        $\widehat{\textrm{IS-LB}}$ & $\widehat{\textrm{CS}}$ \\  
+        \hline
+        \multicolumn{7}{l}{A: $\alpha_1 = \alpha_2$ = 0.05} \\
+        \hline
+        $\rho$ = 0 & 0.50 & 0.50 & 0.50 & 0.50 & 0.50 & 0.50 \\ 
+        $\rho$ = 0.1 & 0.55 & 0.45 & 0.50 & 0.55 & 0.45 & 0.50 \\ 
+        $\rho$ = 0.5 & 0.75 & 0.25 & 0.50 & 0.75 & 0.25 & 0.50 \\ 
+        $\rho$ = 0.9 & 0.95 & 0.05 & 0.50 & 0.95 & 0.05 & 0.51 \\ 
+        \hline
+        \multicolumn{7}{l}{B: $\alpha_1 = 0.0,  \alpha_2$ = 0.05} \\
+        \hline
+        
+        $\rho$ = 0 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 0.98 \\ 
+        $\rho$ = 0.1 & 1.00 & 0.99 & 1.00 & 1.00 & 0.99 & 0.98 \\ 
+        $\rho$ = 0.5 & 1.00 & 0.75 & 1.00 & 1.00 & 0.75 & 0.98 \\ 
+        $\rho$ = 0.9 & 1.00 & 0.19 & 1.00 & 1.00 & 0.19 & 0.96 \\ 
+        \hline
+        \multicolumn{7}{l}{C: $\alpha_1 = 0.025, \alpha_2$ = 0.05} \\
+        \hline
+
+        $\rho$ = 0 & 0.80 & 0.80 & 0.67 & 0.80 & 0.80 & 0.67 \\ 
+        $\rho$ = 0.1 & 0.82 & 0.73 & 0.67 & 0.82 & 0.74 & 0.67 \\ 
+        $\rho$ = 0.5 & 0.89 & 0.43 & 0.67 & 0.89 & 0.43 & 0.67 \\ 
+        $\rho$ = 0.9 & 0.98 & 0.09 & 0.67 & 0.98 & 0.09 & 0.68 \\ 
+        \hline
+      \end{tabular}
+      \caption{True and estimated IS and CS values}\label{t:testing}
+%    \end{small}
+  \end{center}
+\end{table}
+
+As we see from the table, there is negligible difference between the
+estimated values returned using the function \code{pdshare} and the
+true values.
+
+\section{Computational efficiency}\label{s:efficiency}
+
+This section discusses the performance of the function in terms of
+computational time taken to estimate the two measures. All
+computations are done on a 64bit Linux machine with
+R-2.15.3. \code{compute.time} and \code{compute.time.1} in Section
+\ref{s:example} record the time taken to compute IS and CS for a day
+using one second data for RELIANCE. The results are as follows: 
+
+<<echo=TRUE>>=
+compute.time        
+compute.time.1  # on using override.lags=4 
+@ 
+
+A large chunk of the computational time is taken in the automated
+selection of the number of lags using \code{VARselect}. The function
+\code{pdshare} uses a modified \code{VARselect} (called
+\code{MVARselect}). \code{MVARselect} replaces \code{lm} to
+\code{lm.fit} in the function \code{VARselect}.\footnote{We replace
+ \code{resids <- resid(lm(yendog \~ -1 + ys.lagged))} to \code{resids
+   <- lm.fit(x=ys.lagged, y=yendog)\$residuals} in the original
+function \code{VARselect}.} This improves the performance of the code
+by 2\textsc{x}. In addition, specification of the number of lags in
+\code{override.lags} can substantially reduce the amount of time taken
+by the function in generating the output.  
+
+\section{Summary}\label{s:summary}
+This document explains the functionality of \code{pdshare} in
+\proglang{R} to estimate the two most common techniques to measure
+price discovery: information share and component share. The function
+makes extensive use of the functions in \pkg{urca} and \pkg{vars}
+packages.  
+
+Currently the function is implemented for a bivariate case
+only. However, the future version of the function will be extended to 
+multiple markets case. 
+
+\section{Acknowledgements}
+I would like to thank Ajay Shah and Susan Thomas for helpful comments
+and suggestions.
+
+
+\newpage
+
+\nocite{*}
+\bibliography{pdshare}
+
+\end{document}

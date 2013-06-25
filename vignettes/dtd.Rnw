@@ -1,0 +1,352 @@
+\documentclass[nojss]{jss}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{thumbpdf}
+\usepackage{color}
+\usepackage{float}
+\floatstyle{ruled}
+\restylefloat{table}
+
+\newcommand{\floatintro}[1]{
+
+  \vspace*{0.1in}
+
+  {\footnotesize
+    #1
+    }
+
+  \vspace*{0.1in}
+
+}
+
+
+\newcommand{\alert}[1]{\textcolor{red}{#1}}
+
+
+%\VignetteIndexEntry{dtd}
+\author{
+  Ajay Shah \\
+  National Institute of Public Finance and Policy, Delhi \\
+  \AND
+  Manish Singh \\
+  Indira Gandhi Institute of Development Research, Mumbai \\
+  \AND
+  Nidhi Aggarwal \\
+  Indira Gandhi Institute of Development Research, Mumbai
+}
+
+\title{
+  Distance to default: Implementation in R
+}
+
+\Plainauthor{Ajay Shah, Manish Singh, Nidhi Aggarwal}
+\Plaintitle{Distance to default: Implementation in R}
+\Shorttitle{\proglang{R} implementation of Distance to default}
+
+
+\Abstract{
+  This paper describes the implementation of the function \code{dtd} in
+  the package \pkg{ifrogs}. The function implements the Merton Model
+  (1974) to derive the measure `Distance to default' which can be used
+  to assess the credit risk of a firm. The measure indicates how far
+  is the firm from the default point.
+}
+
+\Keywords{Credit risk, Merton Model, Distance to default}
+
+\Address{
+  Ajay Shah\\
+  National Institute of Public Finance and Policy\\
+  Special Institutional Area\\
+  New Delhi 110067, India\\
+  Email: \email{ajayshah@mayin.org}\\
+
+  Manish Singh \& Nidhi Aggarwal\\
+  Indira Gandhi Institute of Development Research\\
+  Goregaon East, Mumbai\\
+  400 065, India\\
+  E-mail: \email{mks344@gmail.com, nidhi@igidr.ac.in}\\
+
+}
+
+
+\begin{document}
+
+\section{Introduction}\label{s:intro}
+Credit risk refers to the risk that the counterparty may fail to meet
+its obligations in the agreed terms. Quantifiying it accurately is of
+immense importance to all: credit risk managers, regulators, and
+investors. One measure to assess the credit risk of a firm is distance
+to default (DtD), which is measured as the difference between the
+asset value of the firm and the face value of its debt, scaled by the
+standard deviation of firm's asset value. It captures how many
+standard deviations away a firm is from the default. Higher values of
+DtD imply lesser likelihood of the firm to default on its credit
+obligations. The measure is derived using the structural default model
+of \citet{Merton1974} (also referred to as the \emph{Merton Model})
+which exploits the interpretation of equity as a call option on the
+firm's underlying assets. The model was later extended by subsequent
+papers (\citet{Vasicek1984}, Moody's-KMV \citet{Crosbie2003}.  
+
+The function \code{dtd} from package \pkg{ifrogs} is the first
+implementation of the DtD routine in \proglang{R}.
+
+The paper proceeds as follows: Section \ref{s:method} briefly explains
+the Merton Model and the derivation of DtD. Section \ref{s:rimplement}
+discusses its implementation in \proglang{R}. Section \ref{s:example}
+illustrates the function with an example. Section \ref{s:accuracy} and
+\ref{s:efficiency} show the accuracy and compuational efficiency of
+the function.   
+
+\section{The Merton Model}\label{s:method}
+In the \citet{Merton1974} framework, equity is viewed as a European
+call option on the underlying market value of the firm's assets, with
+a strike price equal to the face value of its debt. The reason is
+that equity-holders are only the residual claimants on the firm's
+assets, once all obligations are met. As long as the market value
+of the firm's assets is greater than the face value of its debt, the
+payoff to the equity-holders is a positive amount. However, as
+soon as its assets value hits the debt value, the firm is
+assumed to default, and the payoff to the equity-holders is zero.
+
+The market value of the firm's assets is the sum of the market values
+of its debt and equity. While the market value of the firm's equity is
+directly observable, the market value of the debt is not. Using a
+set of observable variables, the Merton Model derives the implied market
+value of the firm's assets and its volatility by backsolving the
+Black-Scholes Options pricing formula.
+
+The model assumes fully liquid financial markets with no
+transactions costs and arbitrage opportunities, constant risk-free
+interest rate with no difference between the borrowing and lending
+rate and no penalty on short selling. It further assumes that the
+market value of the firm's underlying assets follows a Geometric
+Brownian Motion.
+
+Under these assumptions, the firm's assets value follow the
+stochastic process:
+
+\[ dV_A = \mu V_A dt + \sigma_A V_A dz \]
+
+where, $V_A$ is the firm's asset value, $dV_A$ is the change in
+asset value, $\mu$ and $\sigma_A$ are the drift rate and volatility of
+firm's asset value, and $dz$ is a standard Wiener process.
+
+The capital structure in this framework allows for a single class of
+debt and equity. If $F$ is the book value of the debt which is due at
+time $T$, then the market value of equity and the market value of
+assets (using the Black-Scholes formula) are related by the following
+expression:
+
+\begin{eqnarray}\label{e:eqn1}
+  V_E = V_A N(d_1) - e^{-rT} F N(d_2)
+\end{eqnarray}
+
+where, $V_E$ is the market value of the firm's equity, $V_A$ is the
+market value of assets, $r$ is the risk free interest rate, and
+$N(d_1)$ and $N(d_2)$ are the standard cumulative normal of $d_1$ and
+$d_2$ given as:
+
+\[d_1 = \frac{ln(\frac{V_A}{F})+(r+\frac{\sigma^2_A}{2})T}{\sigma_A
+  \sqrt{T}}\]
+
+\[d_2 = d_1 - \sigma_A \sqrt{T}\]
+
+
+Using Ito's lemma, the equity volatility ($\sigma_E$) and asset
+volatility ($\sigma_A$) are related by the expression:
+
+\begin{eqnarray*}
+  \sigma_E = \frac{V_A}{V_E}\cdot \frac{\partial V_E}{\partial V_A}\sigma_A
+\end{eqnarray*}
+
+From the Black-Scholes options pricing formula, $\frac{\partial
+  V_E}{\partial V_A} = N(d_1)$. Thus, the above expression can be
+rewritten as:
+
+\begin{eqnarray}\label{e:eqn2}
+  \sigma_E = \frac{V_A}{V_E}\cdot N(d_1)\sigma_A
+\end{eqnarray}
+
+In practice, $V_E, \sigma_E, F, T, r$ are known. To compute $V_A$ and
+$\sigma_A$, one can solve the system of two non-linear equations
+\ref{e:eqn1} and \ref{e:eqn2} simultaneously to \emph{minimize} the
+sum of the squared errors:
+
+\begin{equation}\label{e:optimize}
+  e^2 = e_1^2 + e_2^2
+\end{equation}
+
+where
+
+\begin{equation*}
+  e_1 = V_E - V_A N(d_1)-e^{-rT}FN(d_2)
+\end{equation*}
+
+and
+
+\begin{equation*}
+  e_2 = \sigma_E - \frac{V_A}{V_E}\cdot N(d_1)\sigma_A
+\end{equation*}
+
+Once the values of $V_A$ and $\sigma_A$ are obtained, the Distance to
+default (DtD) is computed as:
+
+\begin{equation}
+  \textrm{DtD} = \frac{V_A - F}{V_A\cdot\sigma_A}
+\end{equation}
+
+\section{R implementation}\label{s:rimplement}
+
+The function \code{dtd} implements the above methodology. It consumes
+a set of four values: market value of the equity of the firm
+(\code{mcap}), its volatility (\code{vol}), the face value of its debt
+(\code{debt}), and the annualized interest rate (\code{r}). The
+time-to-maturity, $T$ is assumed to be one year. The function is given as:
+
+<< echo=TRUE >>=
+library(ifrogs)
+str(dtd)
+@
+
+
+Once the above set of values are plugged in, the function \code{dtd}
+minimizes Equation \ref{e:optimize} using the `L-BFGS-B' algorithm of
+the function \code{optim}. The initial set of values that are
+supplied are:
+
+\begin{enumerate}
+\item Assets value: Sum of market value of equity and the face value
+  of debt, $V_A = V_E + F$
+\item Assets volatility: $\sigma_A = \frac{V_E \times \sigma_A}{F}$
+\end{enumerate}
+
+In addition, the lower limit for the firm's asset value and its
+volatility is set as the market capitalization of the firm and zero
+respectively. The upper limit for both the variables is set as
+infinity.
+
+The function returns three set of values: DtD, estimated values of
+firm's assets and its volatility.
+
+\section{Example}\label{s:example}
+
+We now illustrate the function with the help of an example. We input
+the \code{mcap} as 10000, \code{debt} as 5000, \code{vol} of
+equity as 0.4 and \code{r} as 0.10, for a hypothetical firm `X' as
+follows:
+
+<< echo=TRUE >>=
+dtd(mcap=10000, debt=5000, vol=0.4, r=0.1)
+@
+
+The output \code{dtd.v} shows the estimated DtD value of the firm.
+
+To compute a time-series of the DtD, we use an example dataset for a
+firm, Reliance Industries Ltd., listed on the National Stock Exchange,
+India. The dataset, \code{dtd\_reliance.RData} has a set of three
+variables: E as the market value of the equity, sE as its volatility
+and F as the debt of the firm.
+
+
+<< echo=TRUE>>=
+data(dtd_reliance)
+head(dtd_reliance)
+@
+
+One can generate a time series of the firm's DtD using the function in
+the following manner:
+
+<< echo=TRUE>>=
+ans <- apply(X=dtd_reliance[ , -1], MARGIN=1,
+                     FUN=function (i) dtd(mcap=i[["E"]],
+                       vol=i[["sE"]], debt=i[["F"]], r=0.05))
+
+ans <- data.frame(date=dtd_reliance[ , "date"], t(ans))
+head(ans)
+@
+
+The values in the column \code{dtd.v} of \code{ans} show the
+time series of DtD. Figure \ref{fig:reliancedtd} shows the plot of the
+same. 
+
+\begin{figure}[h]
+  \begin{center}
+<<echo=TRUE,fig=TRUE>>=
+plot(ans[,"date"], ans[,"dtd.v"], ylab="DtD", xlab="", type="l")
+@
+\caption{Reliance DtD}
+\label{fig:reliancedtd}
+\end{center}
+\end{figure}
+
+\section{Benchmarking accuracy}\label{s:accuracy}
+
+We test the code by plugging back the values of output variables:
+$V_A$ and $\sigma_A$ into the Black-Scholes options pricing
+formula. We compare the obtained value of the option price
+with the market value of the equity firm (which is an input to
+\code{dtd}). In principle, the two should be the same.
+
+As an example, we simulate 1000 values of E (market cap), sE (equity
+volatility) and F (debt), obtain the values of V (asset value) and sV
+(volatility of assets value) in the following manner:
+
+<< echo=TRUE >>=
+# Simulation
+compute_time <- system.time(simulate <- lapply(1:1000, function(i){ 
+  set.seed(i)
+  E <- rnorm(1, mean=56700, sd=200)
+  F <- rnorm(1, mean=25000, sd=400)
+  sE = rnorm(1, mean=0.25, sd=0.02)
+  ans <- dtd(mcap=E, vol=sE,
+             debt=F,  r=0.05)
+  simulate_dtd <- ans["dtd.v"]
+  simulate_v <- ans["asset.v"]
+  simulate_sv <-ans["sigma.v"]
+  return(c(E=E, sE=sE, F=F, simulate_dtd, simulate_v,
+           simulate_sv))
+}))
+simulate_results <- do.call(rbind, simulate)
+head(simulate_results)
+@
+
+We now insert the values of simulate\_results\$asset.V,
+simulate\_results\$sigma.v, simulate\_results\$F back into the
+Black-Scholes Options pricing formula:
+
+<<echo=TRUE>>=
+library(fOptions)
+Estimated.E <- GBSOption("c", S=simulate_results[,"asset.v"],
+                         X=simulate_results[,"F"],
+                         Time=1, r=0.05, b=0.05,
+                         sigma=
+                         simulate_results[,"sigma.v"])
+compare_results <- data.frame(simulate_results,
+                              Estimated.E=Estimated.E@price)
+head(compare_results)
+all.equal(compare_results$E, compare_results$Estimated.E)
+@
+
+The result of \code{all.equal()} shows that the estimated values of
+the market cap of equity is equivalent to the actual values. This
+corroborates the accuracy of the code.
+
+\section{Computational efficiency}\label{s:efficiency}
+
+In this section, we discuss the efficiency of the code in terms of
+computational time taken to generate a time series of `dtd' values. In
+the previous code chunk, \code{compute\_time} records the time taken
+to generate 1000 values of `dtd' using simulated data. The results are
+as follows: 
+
+<<echo=TRUE>>=
+compute_time
+@ 
+
+The above computation is done on a 64bit Linux machine with R-2.15.3.
+
+\newpage
+\bibliography{dtd}
+
+\end{document}
