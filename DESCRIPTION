@@ -1,8 +1,8 @@
 Package: ifrogs
 Title: Finance routines developed by the IGIDR Finance Research Group.
 Version: 1.0
-Depends: urca, vars, fOptions
-Imports: xtable
+Depends: urca, vars
+Imports: xtable, fOptions
 Author: Finance Research Group <akhilsbehl@gmail.com>
 Maintainer: Akhil S. Behl <akhilsbehl@gmail.com>
 Description: Finance routines developed at IGIDR Finance Research Group.
