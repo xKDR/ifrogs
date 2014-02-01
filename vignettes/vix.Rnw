@@ -1,0 +1,650 @@
+\documentclass[nojss]{jss}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{thumbpdf}
+\usepackage{color}
+\usepackage{float}
+\floatstyle{ruled}
+\restylefloat{table}
+
+\newcommand{\floatintro}[1]{
+
+\vspace*{0.1in}
+{\footnotesize #1 } \vspace*{0.1in}
+}
+
+\newcommand{\alert}[1]{\textcolor{red}{#1}}
+
+%\VignetteIndexEntry{vix}
+\author{
+  Akhil Behl \\
+  Indira Gandhi Institute of Development Research, Mumbai \\
+  \AND
+  Rohini Grover \\
+  Indira Gandhi Institute of Development Research, Mumbai
+}
+
+\title{Estimation of model based Volatility Indexes (VIXs)}
+
+\Plainauthor{Akhil Behl, Rohini Grover}
+\Plaintitle{Estimation of model based Volatility indexes}
+\Shorttitle{Estimation of VIXs}
+
+%% publication information
+%% NOTE: Typically, this can be left commented and will be filled out by the technical editor
+%% \Volume{50}
+%% \Issue{9}
+%% \Month{June}
+%% \Year{2012}
+%% \Submitdate{2012-06-04}
+%% \Acceptdate{2012-06-04}
+
+\Abstract{
+   This paper describes the implementation of the model based volatility
+   indexes discussed in \citet{GroverThomas2012} in \proglang{R}. The
+   volatility indexes available are: spread adjusted \textsc{vix}
+   (\textsc{svix}), volume adjusted \textsc{vix} (\textsc{tvvix}), vega
+   weighted \textsc{vix} (\textsc{vvix}), elasticity weighted \textsc{vix}
+   (\textsc{evix}), and the old \textsc{cboe vix} (\textsc{vxo}). A novel
+   method for confidence interval estimation of these indexes using bootstrap
+   resampling, introduced in \citet{GroverShah2013}, is provided along with a
+   first implementation (in \proglang{R}) for calculation of \textsc{vxo}.
+}
+
+\Keywords{volatility indexes, implied volatility, confidence intervals,
+ bootstrap}
+
+\Address{
+  Akhil Behl \& Rohini Grover\\
+  Indira Gandhi Institute of Development Research\\
+  Goregaon East, Mumbai\\
+  400 065, India\\
+  E-mail: \email{akhilsbehl@gmail.com, grover.rohini@gmail.com}\\
+ }
+
+\begin{document}
+
+<<echo=FALSE>>=
+# Set the globals options for the R environment.
+options(width = 60, str = strOptions(strict.width = "cut"))
+@
+
+\section{Introduction}
+\label{sec:introduction}
+
+A volatility index (\textsc{vix}) measures the market's expectation of
+volatility computed from a chain of option prices at different strikes and
+maturities. VIX has been shown \citep{Blairetal2001, JiangTian2005,
+CorradoMiller2005, Giot2005} to provide superior forecasts compared to
+historical volatility. Recent work by \citet{GroverThomas2012} provides
+refinements of model based approaches to calculation of \textsc{vix} by
+incorporating option liquidity. \citet{GroverShah2013} add to the discussion by
+emphasizing the \emph{uncertainty} in the estimation of \textsc{vix}. This
+paper presents an implementation of these model based approaches to point and
+confidence interval estimation of these methods. We also provide the first
+implementation in \proglang{R} \citep{R} for calculation of the old
+\textsc{cboe vix (vxo)} proposed by \citet{Whaley1993}.
+
+The paper is organized as follows: Section~\ref{sec:point} discusses the steps
+involved in point estimation of the old \textsc{cboe vix} and the model based
+\textsc{vix}s. Section~\ref{sec:interval} describes the procedure employed to
+estimate confidence bands for the \textsc{vix}s. Section~\ref{sec:implement}
+describes the implementation of the functions developed for point and interval
+estimation of the \textsc{vix}s alongwith illustrations. Section~\ref{sec:conc}
+concludes.
+
+\section{Point estimation of VIXs}
+\label{sec:point}
+
+The methods for calculation of \textsc{vix} used in these routines are detailed
+in \citet{Whaley1993, GroverThomas2012}. In this section we provide a brief
+overview of these methods.
+
+\subsection{VXO}
+\label{sec:vxo}
+
+In 1993, the \textsc{cboe} introduced the first volatility index. This index is
+computed from eight near-the-money implied volatility (IV) estimates for the
+two nearest maturities. The following steps summarise the computation of
+\textsc{vxo}:
+
+\begin{enumerate}
+
+  \item Estimation of implied volatilities for a call and put with strike price
+    ($K_t$) immediately below the current index level, S and strike price
+    ($K_{u}$) immediately above S for the two nearest maturities. These are
+    denoted by:
+    \begin{align*}
+      \mathrm{IV}_{c, near}^{K_{t}}, \quad \mathrm{IV}_{p, near}^{K_{t}}, \quad
+      \mathrm{IV}_{c, near}^{K_{u}}, \quad \mathrm{IV}_{p, near}^{K_{u}}, \\
+      \mathrm{IV}_{c, next}^{K_{t}}, \quad \mathrm{IV}_{p, next}^{K_{t}}, \quad
+      \mathrm{IV}_{c, next}^{K_{u}}, \quad \mathrm{IV}_{p, next}^{K_{u}}.
+    \end{align*}
+
+  \item Averaging the call and put implied volatilities for each strike and
+    maturity:
+    \begin{align*}
+      \mathrm{IV}_{near}^{K_t} &= (\mathrm{IV}_{c, near}^{K_{t}} +
+        \mathrm{IV}_{p, near}^{K_{t}}) / 2 \\
+      \mathrm{IV}_{next}^{K_t} &= (\mathrm{IV}_{c, next}^{K_{t}} +
+        \mathrm{IV}_{p, next}^{K_{t}}) / 2 \\
+      \mathrm{IV}_{near}^{K_u} &= (\mathrm{IV}_{c, near}^{K_{u}} +
+        \mathrm{IV}_{p, near}^{K_{u}}) / 2 \\
+      \mathrm{IV}_{next}^{K_u} &= (\mathrm{IV}_{c, next}^{K_{u}} +
+        \mathrm{IV}_{p, next}^{K_{u}}) / 2
+    \end{align*}
+
+  \item Linear interpolation between nearby implied volatilities and
+    second nearby implied volatilities to create ``at-the-money'' implied
+    volatilities given by:
+    \begin{equation*}
+      \mathrm{IV}_{i} = \mathrm{IV}_{i}^{K_t} \frac{K_u - S}{K_u - K_t} +
+        \mathrm{IV}_{i}^{K_u} \frac{S - K_u}{K_u - K_t}
+    \end{equation*}
+    where $i=\{near,next\}$ for the two nearest maturities.
+
+  \item Trading-day conversion of the interpolated IVs using the formula:
+    \begin{equation*}
+      \mathrm{IV}_{i} = \mathrm{IV}_{i}\frac{\sqrt{N_{c, i}}}{\sqrt{N_{t, i}}}
+    \end{equation*}
+    where  $N_{c,i}$ and $N_{t,i}$ are number of calender and trading days to
+    expiry for the two nearest maturities, $i=\{near,next\}$.
+
+  \item Interpolation of the near and next IVs to create a 22 trading-day
+    implied volatility.
+    \begin{equation*}
+      \mathrm{VXO} = 100\times \left[ \mathrm{IV}_{near} \left(\frac{N_{t,
+      next} - 22} {N_{t, next} - N_{t, near}}\right) + \mathrm{IV}_{next}
+      \left(\frac{22 - N_{t, near}} {N_{t, next} - N_{t, near}}\right) \right]
+    \end{equation*}
+    where $\mathrm{IV}_{near}$ and $\mathrm{IV}_{next}$ are the trading-day
+    implied volatility rates and $N_{near}$ and $N_{next}$ are the number of
+    trading days to expiration for the two nearest maturities.  Rollover to the
+    next expiration occurs eight calendar days prior to the expiry of the
+    nearby option.
+
+\end{enumerate}
+
+\subsection{Model based VIXs}
+\label{sec:model}
+
+The volatility indexes are computed from all available option prices as
+follows:
+
+\begin{enumerate}
+
+  \item Estimation of implied volatilities for a cross-section of options from
+    the two nearest maturities using an option pricing model.
+
+  \item Computation of the average implied volatility for each maturity $i$:
+
+    \begin{equation*}
+      \mathrm{IV}_{i} = \frac{\sum_{j=1}^{n}w_{ij}\mathrm{IV}_{ij}}
+      {\sum_{j=1}^{n}w_{ij}}
+    \end{equation*}
+
+    where $\mathrm{IV}_{ij}$ refers to a vector of implied volatilities for a
+    chain of options $j=\{1 \ldots n\}$ and the two nearest maturities
+    $i=\{near, next\}$, and $w_{ij}$ refers to the weight for the corresponding
+    option $j$. The weights assigned to each option corresponds to one of the
+    following attributes of the options employed: spread, volume, vega,
+    and elasticity.
+
+  \item Linear interpolation of the weighted average implied volatilities to
+    compute the 30 day expected volatility. Rollover to the next expiration
+    occurs eight calendar days prior to the expiry of the nearby option.
+
+  \begin{equation*}
+    \textrm{\textsc{vix}}  =  100\times \left[ IV_{near}
+    \left(\frac{N_{next}-30} {N_{next}-N_{near}}\right) +
+    IV_{next}\left(\frac{30-N_{near}}{N_{next} - N_{near}}\right)\right]
+  \end{equation*}
+
+  where $IV_{near}$ and $IV_{next}$ are weighted average implied volatilities
+  and $N_{near}$ and $N_{next}$ are the number of calendar days to expiration
+  for the two nearest maturities.
+
+\end{enumerate}
+
+\subsubsection{Data filtering}
+\label{sec:data}
+
+The computation of a \textsc{vix} requires vetting of options for the following
+criteria:
+
+\begin{enumerate}
+
+  \item Non-positive spreads
+
+  \item Zero bid\slash ask prices.
+
+  \item Option prices that violate the no-arbitrage bounds of the option
+    pricing model.
+
+    For example, options violating the lower and upper bounds of the Black and
+    Scholes option pricing model, where the limits are given by:
+
+    \begin{center}
+      \begin{tabular}{ccc}
+        \hline
+        & Upper limit & Lower limit \\ \hline
+        Call & $S - K \times e^{-rt}$ & $S$ \\
+        Put & $K \times e^{-rt} - S$ & $K \times e^{-rt}$ \\ \hline
+      \end{tabular}
+    \end{center}
+
+    where \textit{S} refers to the underlying price, \textit{K} refers to the
+    strike price, \textit{r} refers to the risk-free rate, and \textit{t} refers
+    to the time to maturity of an option.
+    
+    Similarly, for options on currency and futures respectively, one needs to
+    check for violation of Garman \& Kohlhagen's, and Black's options pricing
+    models.
+
+\end{enumerate}
+
+\section{Interval estimation of VIXs}
+\label{sec:interval}
+
+\citet{GroverShah2013} introduce the importance of precision of a volatility
+index and a method to measure it using a confidence interval. Briefly, the
+confidence band is estimated based on the bootstrapped sampling distribution of
+a volatility index computed as follows:
+
+\begin{enumerate}
+
+  \item Sample with replacement from a cross-section of available options
+    at each maturity to construct a bootstrap replicate.
+
+  \item Estimate \textsc{iv}s and weighted average \textsc{iv} for
+    each maturity from the corresponding bootstrap replicate.
+
+  \item Compute the final \textsc{vix} estimate by interpolating the weighted
+    average \textsc{iv}s for the two nearest maturities.
+
+  \item Steps 1-3 are repeated to approximate the sampling distribution of
+    \textsc{vix}. 
+    
+  \item The confidence band is computed from this distribution using the
+    adjusted bootstrap percentile method \citep{Efron1987}.
+
+\end{enumerate}
+
+\section{Implementation and examples}
+\label{sec:implement}
+
+This section describes the functions and example datasets provided in the
+\proglang{R} package \pkg{ifrogs} \citep{ifrogs}  for calculation of
+\textsc{vxo} and the \textsc{vix}s.
+
+\subsection{Computing VXO}
+
+The function that implements the old \textsc{cboe vix} is:
+
+\begin{CodeChunk}
+  \begin{CodeInput}
+      vxo(maturity, riskfree, carry, type, strike,
+      underlying, bid=NULL, ask=NULL, value=NULL)
+  \end{CodeInput}
+\end{CodeChunk}
+
+This function requires eight at-the-money options for the two nearest
+maturities. The eight options are selected in the following fashion: there
+should be a pair of call and put options for two unique strikes, one directly
+above and the other directly below the underlying value. The function
+\code{vxo} also validates these inputs and stops if they do not match these
+requirements. The arguments passed are the annualized risk-free rates,
+annualized carry rates, strike prices, underlying prices, bid\slash ask prices
+or option prices. The object returned is a point estimate of \textsc{vxo}.
+
+We demonstrate this by computing \textsc{vxo} for a sample of SPX and NIFTY
+options. These datasets are provided as \code{vxo_spx} and \code{vxo_nifty}
+respectively. Each dataset is a \code{data.frame} that includes time to
+maturity, risk-free rates, type of option (``c'' for call,``p'' for put),
+strike prices, underlying prices, bid\slash ask prices for eight at-the-money
+options chosen as described above.
+
+\subsubsection{Example 1: Using SPX options}
+
+<<echo=TRUE>>=
+library(ifrogs)
+data(vxo_spx)
+str(vxo_spx)
+
+vxo(maturity=vxo_spx$maturity,
+    riskfree=vxo_spx$riskfree,
+    carry=vxo_spx$riskfree,
+    type=vxo_spx$type,
+    strike=vxo_spx$strike,
+    underlying=vxo_spx$underlying,
+    bid=vxo_spx$bid,
+    ask=vxo_spx$ask)
+@
+
+\subsubsection{Example 2: Using NIFTY options}
+
+<<echo=TRUE>>=
+data(vxo_nifty)
+str(vxo_nifty)
+
+vxo(maturity=vxo_nifty$maturity,
+    riskfree=vxo_nifty$riskfree,
+    carry=vxo_nifty$riskfree,
+    type=vxo_nifty$type,
+    strike=vxo_nifty$strike,
+    underlying=vxo_nifty$underlying,
+    bid=vxo_nifty$bid,
+    ask=vxo_nifty$ask)
+@
+
+\subsection{Model based VIXs}
+
+The point estimation of \textsc{vix} involves three steps: 1) checking\slash
+filtering invalid options at each maturity, 2) computing weighted average
+implied volatility at each maturity, and 3) interpolating the weighted
+\textsc{iv}s to compute the final \textsc{vix} estimate. The \textsc{vix}s may
+be computed for the various weighting schemes simultaneously. We demonstrate
+these three steps and the involved functions in this subsection.
+
+\subsection*{Preparing the options for a maturity}
+
+The function:
+
+\begin{CodeChunk}
+  \begin{CodeInput}
+    prep_maturity(maturity, riskfree, carry, type, strike, underlying, schemes,
+                  bid=NULL, ask=NULL, value=NULL, traded_vol=NULL,
+                  tv_filter=FALSE, verbose=TRUE)
+  \end{CodeInput}
+\end{CodeChunk}
+
+consumes a cross-section of options for a maturity along with a set of
+weighting schemes.
+
+The inputs comprise of the time to maturity in years, the annualized risk-free
+rate, the annualized carry rate, the call or put type of option, the strike
+prices, the underlying prices, the option prices, and the desired schemes.
+
+The optional arguments \code{bid} and \code{ask} are used to compute the
+option spreads for calculation of spread adjusted \textsc{vix}. All other
+\textsc{vix}s can be computed by providing either of the bid\slash ask prices
+or the option prices directly via the \code{value} argument.
+
+Traded volume is an optional argument used for the calculation of the traded
+volume adjusted \textsc{vix}, or otherwise, for filtering options with zero
+traded volume with the optional flag \code{tv_filter = TRUE}.
+
+The optional flag \code{verbose=TRUE} may be used to raise messages if any
+options are dropped.
+
+\subsubsection{Carry}
+
+The implied volatilities for an option type are computed using the
+corresponding option pricing model. This choice can be made using the optional
+argument \code{carry}.
+
+Setting \code{carry = riskfree} gives the Black and Scholes' stock option
+model, setting \code{carry = riskfree-div} switches to Merton's stock option
+model with continuous dividend yield `div'. Further details on the use of this
+option are available in the documentation of \code{GBSVolatility} from
+\pkg{fOptions} \citep{fOptions}.
+
+\subsubsection{Output}
+
+The function returns a \code{list} of three elements: \code{maturity},
+\code{schemes}, and \code{out} which is a \code{data.frame} of the filtered
+inputs, implied volatilities, and vega values (based on the schemes). This
+\code{list} object is fed to \code{weighted_iv}.
+
+\subsubsection{Illustration}
+
+To illustrate, we prepare data for the S\&P 500 index options from the dataset
+\code{vix_spx} and the \textsc{nifty} index options from the dataset
+\code{vix_nifty}.
+
+Each dataset is a list of two data frames corresponding to two nearest
+maturities. Each list includes: time to maturity (in years), risk-free rate,
+type of option ("c" for call, "p" for put), strike prices, underlying prices,
+bid\slash ask prices, and traded volumes (only for NIFTY) for a cross-section
+of all available option contracts.
+
+<<echo=TRUE>>=
+data(vix_spx)
+str(vix_spx)
+data(vix_nifty)
+str(vix_nifty)
+@
+
+\subsubsection{Example 1: Vega VIX using SPX options}
+
+<<echo=TRUE>>=
+spx_near <- prep_maturity(maturity=vix_spx$opt_near$maturity[[1]],
+                          riskfree=vix_spx$opt_near$riskfree[[1]],
+                          carry=vix_spx$opt_near$riskfree[[1]],
+                          type=vix_spx$opt_near$type,
+                          strike=vix_spx$opt_near$strike,
+                          underlying=vix_spx$opt_near$underlying,
+                          schemes="vega",
+                          bid=vix_spx$opt_near$bid,
+                          ask=vix_spx$opt_near$ask,
+                          tv_filter=FALSE)
+
+str(spx_near)
+
+spx_next <- prep_maturity(maturity=vix_spx$opt_next$maturity[[1]],
+                          riskfree=vix_spx$opt_next$riskfree[[1]],
+                          carry=vix_spx$opt_next$riskfree[[1]],
+                          type=vix_spx$opt_next$type,
+                          strike=vix_spx$opt_next$strike,
+                          underlying=vix_spx$opt_next$underlying,
+                          schemes="vega",
+                          bid=vix_spx$opt_next$bid,
+                          ask=vix_spx$opt_next$ask,
+                          tv_filter=FALSE)
+str(spx_next)
+@
+
+\subsubsection{Example 2: Spread, elasticity, and vega VIX using NIFTY options}
+
+The datasets are prepared for near and next month options by filtering out
+options with zero traded volume.
+
+<<echo=TRUE>>=
+nifty_near <- prep_maturity(maturity=vix_nifty$opt_near$maturity[[1]],
+                            riskfree=vix_nifty$opt_near$riskfree[[1]],
+                            carry=vix_nifty$opt_near$riskfree[[1]],
+                            type=vix_nifty$opt_near$type,
+                            strike=vix_nifty$opt_near$strike,
+                            underlying=vix_nifty$opt_near$underlying,
+                            schemes=c("spread", "elasticity", "vega"),
+                            bid=vix_nifty$opt_near$bid,
+                            ask=vix_nifty$opt_near$ask,
+                            traded_vol=vix_nifty$opt_near$traded_vol,
+                            tv_filter=TRUE)
+
+nifty_next <- prep_maturity(maturity=vix_nifty$opt_next$maturity[[1]],
+                            riskfree=vix_nifty$opt_next$riskfree[[1]],
+                            carry=vix_nifty$opt_next$riskfree[[1]],
+                            type=vix_nifty$opt_next$type,
+                            strike=vix_nifty$opt_next$strike,
+                            underlying=vix_nifty$opt_next$underlying,
+                            schemes=c("spread", "elasticity", "vega"),
+                            bid=vix_nifty$opt_next$bid,
+                            ask=vix_nifty$opt_next$ask,
+                            traded_vol=vix_nifty$opt_next$traded_vol,
+                            tv_filter=TRUE)
+@
+
+\subsection*{Computing the weighted implied volatility}
+
+The \code{list} object returned by the \code{prep_maturity} routine is to be
+fed to
+
+\begin{CodeChunk}
+  \begin{CodeInput}
+    weighted_iv(prepped)
+  \end{CodeInput}
+\end{CodeChunk}
+
+which computes the weighted implied volatilities for the contained
+\code{scheme}s.
+
+This function also returns a \code{list} containing three elements:
+\code{maturity}, \code{schemes}, and the weighted average implied volatilities.
+
+\subsubsection{Example 1: Vega VIX using SPX options}
+
+<<echo=TRUE>>=
+spx_near_iv <- weighted_iv(prepped=spx_near)
+spx_next_iv <- weighted_iv(prepped=spx_next)
+spx_near_iv
+@
+
+\subsubsection{Example 2: Spread, elasticity, and vega VIX using NIFTY options}
+
+<<echo=TRUE>>=
+nifty_near_iv <- weighted_iv(prepped=nifty_near)
+nifty_next_iv <- weighted_iv(prepped=nifty_next)
+nifty_near_iv
+@
+
+\subsection*{Computing point estimates for VIX}
+
+The third and final step in the calculation is implemented in the function
+
+\begin{CodeChunk}
+  \begin{CodeInput}
+    vix_pt(iv_near, iv_next)
+  \end{CodeInput}
+\end{CodeChunk}
+
+which consumes the output of \code{weighted_iv} and returns the
+point estimates of the included schemes. Continuing with our illustration:
+
+The point estimates for the \textsc{vix}s are given by:
+
+<<echo=TRUE>>=
+spx_vix <- vix_pt(iv_near=spx_near_iv, iv_next=spx_next_iv)
+spx_vix
+
+nifty_vixes <- vix_pt(iv_near=nifty_near_iv, iv_next=nifty_next_iv)
+nifty_vixes
+@
+
+\subsection{Estimating confidence bands for VIXs}
+
+The confidence bounds for the volatility indexes: \textsc{svix},
+\textsc{tvvix}, \textsc{vvix}, and \textsc{evix} are implemented through the
+function:
+
+\begin{CodeChunk}
+  \begin{CodeInput}
+    vix_ci(prep_near, prep_next=NULL, n_samples=1e3, conf=0.95,
+          verbose=TRUE, ...)
+  \end{CodeInput}
+\end{CodeChunk}
+
+The inputs to \code{vix_ci} are again the prepared data for the two maturities
+alongwith arguments required for bootstrap sampling. More arguments to
+\code{boot} (\pkg{boot} \citet{boot}) may be passed through `\code{\dots}'.
+
+If options are not available for the next maturity, \code{prep_next=NULL} may
+be used to compute the confidence interval for weighted average \textsc{iv} for
+only the near maturity. In this case the weighted average implied volatility is
+converted to a percentage.
+
+\code{vix_ci} returns a \code{list} with three elements: the point estimates,
+the confidence bands, and the bootstrap replicates of the volatility
+index(es).
+
+We demonstrate below the computation of confidence bands for the model based
+\textsc{vix}s using SPX and NIFTY options for the same datasets and inputs
+discussed under point estimation of these \textsc{vix}s.
+
+\subsubsection{Example 1: For vega VIX using SPX options}
+
+<<echo=FALSE>>=
+set.seed(101)
+spx_near <- prep_maturity(maturity=vix_spx$opt_near$maturity[[1]],
+                            riskfree=vix_spx$opt_near$riskfree[[1]],
+                            carry=vix_spx$opt_near$riskfree[[1]],
+                            type=vix_spx$opt_near$type,
+                            strike=vix_spx$opt_near$strike,
+                            underlying=vix_spx$opt_near$underlying,
+                            schemes="vega",
+                            bid=vix_spx$opt_near$bid,
+                            ask=vix_spx$opt_near$ask,
+                            traded_vol=NULL,
+                            tv_filter=FALSE)
+
+spx_next <- prep_maturity(maturity=vix_spx$opt_next$maturity[[1]],
+                            riskfree=vix_spx$opt_next$riskfree[[1]],
+                            carry=vix_spx$opt_next$riskfree[[1]],
+                            type=vix_spx$opt_next$type,
+                            strike=vix_spx$opt_next$strike,
+                            underlying=vix_spx$opt_next$underlying,
+                            schemes="vega",
+                            bid=vix_spx$opt_next$bid,
+                            ask=vix_spx$opt_next$ask,
+                            traded_vol=NULL,
+                            tv_filter=FALSE)
+@
+
+<<echo=TRUE>>=
+spx_ci <- vix_ci(prep_near=spx_near,
+                 prep_next=spx_next,
+                 n_samples=1e3, conf=0.95,
+                 verbose=TRUE)
+
+str(spx_ci)
+@
+
+\subsubsection{Example 2: For vega VIX using NIFTY options}
+
+<<echo=FALSE>>=
+set.seed(101)
+nifty_near <- prep_maturity(maturity=vix_nifty$opt_near$maturity[[1]],
+                            riskfree=vix_nifty$opt_near$riskfree[[1]],
+                            carry=vix_nifty$opt_near$riskfree[[1]],
+                            type=vix_nifty$opt_near$type,
+                            strike=vix_nifty$opt_near$strike,
+                            underlying=vix_nifty$opt_near$underlying,
+                            schemes="vega",
+                            bid=vix_nifty$opt_near$bid,
+                            ask=vix_nifty$opt_near$ask,
+                            traded_vol=vix_nifty$opt_near$traded_vol,
+                            tv_filter=TRUE)
+
+nifty_next <- prep_maturity(maturity=vix_nifty$opt_next$maturity[[1]],
+                            riskfree=vix_nifty$opt_next$riskfree[[1]],
+                            carry=vix_nifty$opt_next$riskfree[[1]],
+                            type=vix_nifty$opt_next$type,
+                            strike=vix_nifty$opt_next$strike,
+                            underlying=vix_nifty$opt_next$underlying,
+                            schemes="vega",
+                            bid=vix_nifty$opt_next$bid,
+                            ask=vix_nifty$opt_next$ask,
+                            traded_vol=vix_nifty$opt_next$traded_vol,
+                            tv_filter=TRUE)
+@
+
+<<echo=TRUE>>=
+nifty_ci <- vix_ci(prep_near=nifty_near,
+                   prep_next=nifty_next,
+                   n_samples=1e3, conf=0.95,
+                   verbose=TRUE)
+
+str(nifty_ci)
+@
+
+\section{Conclusion}
+\label{sec:conc}
+This paper presents an implementation of the model based
+approaches to point and confidence interval estimation of these volatility
+indexes. We also provide the first implementation in \proglang{R} for
+calculation of the old \textsc{cboe vix (vxo)} proposed by \citet{Whaley1993}.
+
+\newpage
+%\bibliographystyle{jss}
+\bibliography{vix}
+\end{document}
