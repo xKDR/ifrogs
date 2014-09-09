@@ -1,11 +1,11 @@
 context("VIX")
 
 test_that("test.vxo", {
-  load(system.file("data", "vxo_spx.RData", package = "ifrogs.dev"))
-  load(system.file("data", "vxo_nifty.RData", package = "ifrogs.dev"))
+  load(system.file("data", "vxo_spx.RData", package = "ifrogs"))
+  load(system.file("data", "vxo_nifty.RData", package = "ifrogs"))
 
                                         # load the test output data
-  load(system.file("tests", "data_vxo.RData", package = "ifrogs.dev"))
+  load(system.file("tests", "data_vxo.RData", package = "ifrogs"))
   
   test_spx_vxo <- vxo(maturity=vxo_spx$maturity, riskfree=vxo_spx$riskfree,
                       carry=vxo_spx$riskfree, type=vxo_spx$type,

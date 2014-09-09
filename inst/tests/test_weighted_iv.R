@@ -1,11 +1,11 @@
 context("VIX")
 
 test_that("test.weighted_iv", {
-  load(system.file("data", "vix_spx.RData", package = "ifrogs.dev"))
-  load(system.file("data", "vix_nifty.RData", package = "ifrogs.dev"))
+  load(system.file("data", "vix_spx.RData", package = "ifrogs"))
+  load(system.file("data", "vix_nifty.RData", package = "ifrogs"))
 
                                         # load the test output data
-  load(system.file("tests", "data_weighted_iv.RData", package = "ifrogs.dev"))
+  load(system.file("tests", "data_weighted_iv.RData", package = "ifrogs"))
  
   test_spx_near <- prep_maturity(maturity=vix_spx$opt_near$maturity[[1]],
                                  riskfree=vix_spx$opt_near$riskfree[[1]],
