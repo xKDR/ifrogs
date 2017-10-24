@@ -1,0 +1,251 @@
+\documentclass[nojss]{jss}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{thumbpdf}
+\usepackage{color}
+\usepackage{float}
+\floatstyle{ruled}
+\restylefloat{table}
+
+\newcommand{\floatintro}[1]{
+  \vspace*{0.1in}
+          {\footnotesize #1 } \vspace*{0.1in} 
+}
+
+\newcommand{\alert}[1]{\textcolo{red}{#1}}
+
+%\VignetteIndexEntry{ic}
+\author{
+  Ajay Shah \\
+  National Institute of Public Finance \& Policy, New Delhi
+}
+
+\title{ Impact Cost: Implementation in \proglang{R} }
+
+\Plaintitle{Impact Cost Implementation in R}
+\Shorttitle{Impact Cost Implementation}
+
+\Abstract{
+  This paper describes the implementation of the function \code{ic} in
+  the package \pkg{ifrogs}. The function estimates the impact cost of
+  trading a given quantity of a security on both the buy side and sell
+  side of the limit order book. Impact cost is a measure of liquidity, 
+  indicating the cost of transaction in a stock for a specific
+  quantity at a given point in time.
+}
+
+\Keywords{
+  Impact cost, Limit order book, Liquidity
+}
+
+\Address{
+  Ajay Shah\\
+  National Institute of Public Finance and Policy\\
+  Special Institutional Area\\
+  New Delhi 110067, India\\
+  E-mail: \email{ajayshah@mayin.org}\\
+}
+
+\begin{document}
+
+\section{Introduction}
+\label{s:intro}
+
+Liquidity means transaction costs, a highly liquid market is one where
+large orders can be executed without incurring a high transaction
+cost. Liquidity is valuable to market participants, yet is notoriously
+hard to define. The consensus in the literature is that liquidity
+cannot be represented by a single variable. Most empirical studies use
+several alternative measures, such as quoted and effective bid-ask
+spreads and depth at the best bid and offer quotations, to obtain a
+robust picture of a market's liquidity.
+
+Such measures have a limitation of being able to capture the liquidity
+available within the best quotes or limit prices only. They are unable 
+to provide a measure of liquidity when the transaction size is greater 
+than the depth available at the best quotes in the limit order book.
+
+An ex-ante measure of liquidity which aggregates the status of the
+limit order book at any moment in time for a specific transaction size
+into one number is called \code{Impact cost}. Impact cost is defined as
+the percentage mark-up of the average weighted execution price of
+instantaneously buying or selling of a security using a market order
+of quantity $Q$ over mid-quote price of the security. It measures the
+percentage degradation that is experienced with respect to the
+mid-quote price of the security for buying or selling. It is different
+for buy and sell orders and varies with different transaction size.
+
+The function \code{ic} from package \pkg{ifrogs} is the first
+implementation of impact cost estimation in \proglang{R}.
+
+The paper is organised as follows: Section 1 briefly
+discusses the steps involved in estimation of impact cost. Section
+2 describes the implementation of the function in
+\proglang{R}. Section 3 illustrates the function with an
+example. Section 4 shows the computational efficiency
+of the function. 
+
+\section{Estimation of Impact Cost}
+\label{s:estimation}
+
+Electronic limit order books have become an important means of trading
+equities, derivatives and bonds. A distinguishable feature of this
+format is that a high proportion of available liquidity is committed
+(displayed) rather than implicit or hidden.
+
+If a market order of quantity $Q$ is placed, it would either get
+executed at the best limit prices else the market order would have to
+walk through the various limit prices in the book. If the execution
+takes place at the best price the transaction cost incurred would be
+equal to one half of the bid-ask spread. But when the order gets
+executed further away from the best prices, the transaction cost
+increases and is captured by the impact cost.
+
+As a benchmark for our analysis, we use a hypothetical perfectly
+liquid capital market. Every investor is assumed to be a price taker,
+facing perfectly elastic demand and supply of shares at the same
+market-clearing price. We propose to evaluate the liquidity of an
+actual market according to its proximity to this hypothetical
+perfectly liquid market: the closer the resemblance, the more liquid
+is the actual market.
+
+The hypothetical perfect liquid market would allow the security to be
+traded in unlimited quantities at the mid point of the best bid and
+ask prices. We call this as the mid-quote price.
+
+Thus, the mid-quote can be computed as:
+
+\begin{equation}
+  p_{mid} = \frac{p_{1}^{bid} + p_{1}^{ask}}{2}
+\end{equation}
+
+where $p_{1}^{bid}$ and $p_{1}^{ask}$ represent the best prices offers
+on the bid and the ask side of the book. The best bid is defined as
+the maximum price associated with any buy limit order, and the best
+ask is defined as the minimum price associated with any sell limit
+order.
+
+The average weighted price of execution for the market order of size
+$Q$ is given by:
+
+\begin{equation}
+  p_{t} (Q) = \frac{1}{Q} [ (Q - \sum_{i=1}^{s} Q_{it})*p_{s +1,t} +
+    \sum_{i=1}^{s} p_{it}*Q_{it} ]
+\end{equation}
+
+Here, $p_{t}$ (Q) is the average weighted execution price of the
+quantity $Q$ at time $t$. $p_{it}$ and $Q_{it}$ are the price and
+quantity of the $i^{th}$ limit order away from the best prices that
+would be fully consumed by the market order at time $t$ for $ i = 1,2,
+\hdots, s$. $Q$ is the size of the market order. $p_{s+1,t}$ is the
+price of the $(s+1)^{th}$ limit order which would be partially
+executed against the market order. The average weighted execution
+price can be calculated for both a buy and a sell market order.
+
+The impact cost is the percentage degradation that is experienced with
+respect to the ideal price (mid-quote price) for a buy or a sell
+market order. Mathematically, the impact cost can be written as:
+
+\begin{equation}
+  ic_{t} (Q) = \frac{\lvert p_{t} (Q) - p_{mid} \rvert} {p_{mid}} * 100
+\end{equation}
+
+The impact cost thus measured is in percentage terms and can also be
+expressed in basis points by further multiplication of the estimate by
+100. The measure can be computed for both the bid as well as the ask
+side of the limit order book.
+
+\section{R implementation}
+\label{s:rimplement}
+
+The function \code{ic} implements the above estimation of impact
+cost. It requires limit order prices (\code{buyPrice} \& \code{sellPrice})
+and the corresponding quantities (\code{buyQty} \& \code{sellQty}) on
+the buy and sell side of the order book and the size of the market order
+(\code{Q}) . The function can also handle partial execution of market
+orders if the \code{partialExecution} flag is \code{TRUE} and the
+market order \code{Q} exceeds the quantity available in the book for
+execution.
+
+The function is given as:
+<<echo = TRUE>>=
+library(ifrogs)
+str(ic)
+@ 
+
+In the above arguments 'mbp' should be a data frame which has the buy
+and sell side price and quantity information based on which the impact
+cost has to be calculated.Once the arguments are specified, the function
+compares the depth of the book and the quantity \code{Q} requested.  In
+case it is not feasible to fully execute the market order, it returns
+\code{NA}  or the average weighted price and the impact cost for the
+quantity feasible for execution based on the value of
+\code{partialExecution}. If it is feasible to fully execute the
+market, the function calculates the average weighted price of execution 
+and the impact cost for the market order \code{Q}.
+
+The function returns a list having the percentage of impact cost incurred
+for both the buy and sell side, corresponding to all timestamps in the
+mbp file. The name of the list is the Quantity \code{Q} for which the impact
+cost has been computed.  
+
+\section{Example}
+\label{s:example}
+We illustrate the function with an example data of a company,
+Cinemax India Ltd., listed on the National Stock Exchange, India. The
+data, \code{CINEMAX} is a twenty deep limit order book data
+consisting of the best buy and sell side prices and quantities for
+Cinemax India Ltd. on 29$^{th}$ October, 2013. The dataset is a list of
+four dataframe: buyQty, buyPrice, sellQty and sellPrice. 
+%buyQty and sellQty consist of the best quantities on the buy and sell side
+%respectively for the topmost twenty levels. Similarly, buyPrice and
+%sellPrice consist of the best prices on the buy and sell side
+%respectively for the topmost twenty levels.  
+
+<< echo = TRUE >>=
+data("ic_CINEMAX")
+str(CINEMAX, list.len = 5)
+@ 
+
+One can estimate the impact cost for selling and buying shares of a
+given quantity for the stock on a particular day using the function:
+
+The data from the cinemax data set is first converted into a format 
+as required for the ic function which takes mbp file for the required
+security for the given date as an argument.
+<<echo = TRUE>>=
+mbp <- cbind(as.data.frame(CINEMAX[1]),
+             as.data.frame(CINEMAX[2]),
+             as.data.frame(CINEMAX[3]),
+             as.data.frame(CINEMAX[4]))
+             
+result_ic <- ic(mbp, Q = 600 , partial=TRUE)
+
+
+
+computeTime <- system.time(ic(mbp, Q = 600, partial=FALSE))
+head(result_ic[[1]],10)
+@ 
+
+\code{sellIC} and \code{buyIC} contain the impact cost for selling and
+buying 600 shares of Cinemax India Ltd. for 29$^{th}$ October,
+2013. 
+
+
+\section{Computational efficiency}
+\label{s:efficiency}
+In this section, we discuss the efficiency of the code in terms of
+computational time taken to generate the `Impact Cost' for twenty deep
+limit order book of 476 records. The innermost code for calculating
+the average weighted price is vectorised, thus making the whole
+function far more efficient than other implementations. The
+\code{computeTime} variable in the above code computes the time taken
+for estimating IC  using this data. The time taken is:
+
+<<echo=TRUE>>=
+computeTime
+@ 
+
+The above computation is done on a 64-bit Linux machine with R-3.2.3.
+
+\end{document}
