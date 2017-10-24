@@ -1,2 +1,4 @@
 export(pdshare, dtd, prep_maturity, weighted_iv, vix_ci, vix_pt, vxo, ic, create_snapshot, execute_order)
 import(urca, vars, fOptions, boot, xtable, testthat)
+importFrom("stats", "approx", "complete.cases", "embed", "lm.fit", "na.omit", "optim", "pnorm")
+importFrom("utils", "tail")
