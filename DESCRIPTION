@@ -1,5 +1,5 @@
 Package: ifrogs
-Title: Finance routines developed by the IGIDR Finance Research Group.
+Title: Finance routines developed by the IGIDR Finance Research Group
 Version: 0.1-3
 Depends:
     R (>= 2.10),
