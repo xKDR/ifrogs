@@ -180,7 +180,7 @@ create_snapshot <- function(mbp, type) {
 ##'
 ##' ans2 <- ic( mbp, Q = 600, d, partial = TRUE)
 ##' head(ans2)
-ic <- function(mbp, Q, d, partial = FALSE) {
+ic <- function(mbp, Q, d, partial = FALSE, midquote = FALSE) {
   if (is.null(nrow(mbp)) | nrow(mbp) == 0) {
     warning(d,
             "No data points available.",
@@ -247,8 +247,11 @@ ic <- function(mbp, Q, d, partial = FALSE) {
 
     buyIC <- ((buy.execution[, "p"] - p.mid) / p.mid) * 100
     sellIC <- ((sell.execution[, "p"] - p.mid) / p.mid) * 100
-    IC <- cbind(sellIC, buyIC, deparse.level = 1) # don't lose the labels
-
+    if (midquote == TRUE) {
+      IC <- cbind(sellIC, buyIC, midquote=p.mid, deparse.level = 1)
+    } else {
+      IC <- cbind(sellIC, buyIC, deparse.level = 1) # deparse: don't lose the labels
+    }
     return(IC)
   })
 

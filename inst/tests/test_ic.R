@@ -119,5 +119,22 @@ test_that("test_ic", {
   expect_identical(test_ic_partial_true_tmp,
                test_ic_partial_true_result)
 
+  test_ic_midquote_true_tmp <- ic( mbp,
+                                  Q = 600 ,
+                                  partial = TRUE,
+                                  midquote = TRUE)
   
+  cat("\nTesting ic for midquote = true ")
+  expect_identical(test_ic_midquote_true_tmp,
+               test_ic_midquote_true_result)
+  
+  test_ic_midquote_false_tmp <- ic( mbp,
+                                   Q = 600,
+                                   partial = TRUE,
+                                   midquote = FALSE)
+  
+  cat("\nTesting ic for midquote = false ")
+  expect_identical(test_ic_midquote_false_tmp,
+               test_ic_midquote_false_result)
+
 })  
