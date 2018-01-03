@@ -144,24 +144,27 @@ create_snapshot <- function(mbp, type) {
 ##' 
 ##' 
 ##'
-##' @param Q an 'integer' vector containing the quantities
-##' for which to compute the Impact Cost.
+##' @param Q an 'integer' vector containing the quantities for which
+##'     to compute the Impact Cost.
 ##' @param d Date
-##' @param partial a 'logical' scalar, telling whether to do
-##' partial executions
+##' @param partial a 'logical' scalar, telling whether to do partial
+##'     executions
+##' @param midquote a 'logical' scalar, whether to return midquote
+##'     price for each timestamp
 ##'
-##' @return A 'list' of matrices containing buy and sell IC.
+##' @return A 'list' of matrices containing buy, sell IC, and mid-quote price, if required.
 ##' 'names' of the list are the Q values used. Each matrix will
 ##' contain rows having
 ##' \itemize{
 ##' \item buyIC percentage: numeric
 ##' \item sellIC percentage: numeric
+##' \item midquote price: numeric
 ##' }
 ##'
 ##' The function returns \sQuote{NA} values if \dQuote{partial} is
 ##'  \sQuote{FALSE}, or, if there were no orders (empty book) at a
-##' particular time.For the buy and sell ic measures the
-##' corresponding row name for that entry is its timestamp.
+##'  particular time. For buy and sell ic the corresponding row name
+##'  for that entry is its timestamp.
 ##' 
 ##' 
 ##' @author Chirag Anand
