@@ -18,4 +18,4 @@ This function is used to estimate the two most widely used approaches to measure
 This function implements the methodology for constructing confidence intervals for model based volatility indexes. 
 
 ## Author
-* **Finance Research Group, IGIDR** - [FRG](https://ifrogs.org)
+* **[Finance Research Group](https://ifrogs.org)**

@@ -1,5 +1,5 @@
 Package: ifrogs
-Title: Finance Routines Developed by the IGIDR Finance Research Group
+Title: Finance Routines Developed by the Finance Research Group
 Version: 0.1-3
 Depends:
     R (>= 2.10),
@@ -12,7 +12,7 @@ Imports:
     testthat
 Author: Finance Research Group <akhilsbehl@gmail.com>
 Maintainer: Chirag Anand <anand.chirag@gmail.com>
-Description: Finance routines developed at IGIDR Finance Research Group.
+Description: Finance routines developed at Finance Research Group.
 URL: http://ifrogs.r-forge.r-project.org
 BugReports: https://r-forge.r-project.org/tracker/?group_id=xxx
 License: GPL (>= 2)
